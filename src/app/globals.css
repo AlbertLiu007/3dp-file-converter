@@ -34,3 +34,8 @@ select {
 canvas {
   display: block;
 }
+
+@page {
+  size: A4 landscape;
+  margin: 10mm;
+}

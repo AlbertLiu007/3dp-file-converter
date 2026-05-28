@@ -16,6 +16,11 @@ export type ModelMeasurement = {
     y: number;
     z: number;
   };
+  centerOfMassMm: {
+    x: number;
+    y: number;
+    z: number;
+  } | null;
   volumeMm3: number | null;
   volumeCm3: number | null;
   surfaceAreaMm2: number | null;

@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: 220 18% 97%;
+  --panel: 0 0% 100%;
+  --ink: 222 28% 12%;
+  --muted: 220 9% 43%;
+  --line: 220 14% 88%;
+  --accent: 188 82% 36%;
+  --accent-strong: 188 90% 28%;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+  color: hsl(var(--ink));
+  background: hsl(var(--bg));
+  font-family: Inter, Avenir Next, Segoe UI, sans-serif;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+canvas {
+  display: block;
+}

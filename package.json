@@ -2,6 +2,9 @@
   "name": "3dp-file-converter",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "dev": "NEXT_DIST_DIR=.next-dev next dev",
     "build": "NEXT_DIST_DIR=.next-build next build",
@@ -9,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@unionam/shared-i18n": "0.1.0",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "lucide-react": "^0.468.0",

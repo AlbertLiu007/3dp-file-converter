@@ -1,32 +1,16 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
+import { useSharedLanguage } from '@unionam/shared-i18n';
 import { dictionaries, type Language } from './dictionaries';
 
-const STORAGE_KEY = '3dp-file-converter.language';
-
-function readStoredLanguage(): Language {
-  if (typeof window === 'undefined') return 'zh';
-  const stored = window.localStorage.getItem(STORAGE_KEY);
-  return stored === 'en' ? 'en' : 'zh';
-}
-
 export function useLanguage() {
-  const [language, setLanguageState] = useState<Language>('zh');
-
-  useEffect(() => {
-    setLanguageState(readStoredLanguage());
-  }, []);
-
-  function setLanguage(nextLanguage: Language) {
-    setLanguageState(nextLanguage);
-    window.localStorage.setItem(STORAGE_KEY, nextLanguage);
-  }
+  const { language, setLanguage } = useSharedLanguage();
 
   return useMemo(
     () => ({
-      language,
-      setLanguage,
+      language: language as Language,
+      setLanguage: setLanguage as (language: Language) => void,
       t: dictionaries[language],
     }),
     [language],

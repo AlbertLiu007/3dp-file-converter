@@ -3,8 +3,12 @@ export type Language = 'zh' | 'en';
 export const dictionaries = {
   zh: {
     languageName: '中文',
+    languageZh: '中文',
+    languageEn: 'English',
     appTitle: '联泰科技3D打印工具站',
     appSubtitle: '上海联泰科技（UnionTech）旗下安全、专业的一站式 3D 打印工具平台',
+    navQuote: '报价工具',
+    navConverter: '格式转换',
     converterTitle: '3D打印文件格式转换器',
     localPrivacy: '本地解析转换，文件不会上传服务器',
     dropTitle: '拖入模型开始转换',
@@ -111,8 +115,12 @@ export const dictionaries = {
   },
   en: {
     languageName: 'English',
+    languageZh: '中文',
+    languageEn: 'English',
     appTitle: 'UnionTech 3D Printing Tool Station',
     appSubtitle: 'A secure, professional, all-in-one 3D printing tool platform by UnionTech',
+    navQuote: 'Quote Tool',
+    navConverter: 'File Converter',
     converterTitle: '3D Printing File Converter',
     localPrivacy: 'Local parsing and conversion. Files are never uploaded.',
     dropTitle: 'Drop a model to start converting',

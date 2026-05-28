@@ -277,6 +277,10 @@ function ModelEngineeringView({
 
 export default function HomePage() {
   const { language, setLanguage, t } = useLanguage();
+  const navItems = [
+    { label: t.navQuote, href: '/quote' },
+    { label: t.navConverter, href: '/converter', active: true },
+  ];
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const downloadUrlRef = useRef<string | null>(null);
   const [currentFile, setCurrentFile] = useState<{ name: string; size: number; format: ModelFormat } | null>(null);
@@ -482,7 +486,7 @@ export default function HomePage() {
   return (
     <main className="min-h-screen bg-slate-100 text-slate-950">
       <div className="print:hidden">
-        <ToolHeader language={language} labels={t} logoSrc="/converter/brand/unionam-logo.png" onLanguageChange={setLanguage} />
+        <ToolHeader language={language} labels={t} logoSrc="/converter/brand/unionam-logo.png" navItems={navItems} onLanguageChange={setLanguage} />
       </div>
 
       <div className="mx-auto grid max-w-[1480px] items-start gap-4 px-5 py-5 lg:grid-cols-[minmax(0,1fr)_430px]">

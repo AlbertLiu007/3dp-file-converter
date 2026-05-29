@@ -6,6 +6,7 @@ export type ConversionInput = {
   sourceFormat: ModelFormat;
   targetFormat: MeshModelFormat;
   object: THREE.Object3D;
+  scaleFactor?: number;
 };
 
 export type ConversionResult = {

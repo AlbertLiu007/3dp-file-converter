@@ -5,8 +5,11 @@ import { PLYExporter } from 'three/examples/jsm/exporters/PLYExporter.js';
 import { STLExporter } from 'three/examples/jsm/exporters/STLExporter.js';
 import type { MeshModelFormat } from '@/lib/model/model-types';
 
-function cloneForExport(object: THREE.Object3D) {
+function cloneForExport(object: THREE.Object3D, scaleFactor = 1) {
   const cloned = object.clone(true);
+  if (Number.isFinite(scaleFactor) && scaleFactor > 0 && scaleFactor !== 1) {
+    cloned.scale.multiplyScalar(scaleFactor);
+  }
   cloned.updateMatrixWorld(true);
   return cloned;
 }
@@ -57,8 +60,8 @@ function exportPly(object: THREE.Object3D) {
   });
 }
 
-export async function exportModelObject(object: THREE.Object3D, targetFormat: MeshModelFormat) {
-  const exportObject = cloneForExport(object);
+export async function exportModelObject(object: THREE.Object3D, targetFormat: MeshModelFormat, scaleFactor = 1) {
+  const exportObject = cloneForExport(object, scaleFactor);
 
   if (targetFormat === 'stl') {
     const content = new STLExporter().parse(exportObject, { binary: true });

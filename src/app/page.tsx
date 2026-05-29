@@ -317,6 +317,7 @@ export default function HomePage() {
   const [measurement, setMeasurement] = useState<ModelMeasurement | null>(null);
   const [riskAnalysis, setRiskAnalysis] = useState<ModelRiskAnalysis | null>(null);
   const [targetFormat, setTargetFormat] = useState<MeshModelFormat>('stl');
+  const [scalePercent, setScalePercent] = useState(100);
   const [statusKey, setStatusKey] = useState<StatusKey>('initial');
   const [progressPercent, setProgressPercent] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -326,8 +327,21 @@ export default function HomePage() {
 
   const targetOptions = useMemo(() => {
     if (!currentFile || isCadModelFormat(currentFile.format)) return meshModelFormats;
+    if (scalePercent !== 100) return meshModelFormats;
     return meshModelFormats.filter((format) => format !== currentFile.format);
-  }, [currentFile]);
+  }, [currentFile, scalePercent]);
+
+  const scaleFactor = useMemo(() => {
+    if (!Number.isFinite(scalePercent)) return 1;
+    return Math.max(1, scalePercent) / 100;
+  }, [scalePercent]);
+
+  const isScaledExport = scaleFactor !== 1;
+
+  useEffect(() => {
+    if (!currentFile || isCadModelFormat(currentFile.format) || isScaledExport || currentFile.format !== targetFormat) return;
+    setTargetFormat(meshModelFormats.find((format) => format !== currentFile.format) ?? 'stl');
+  }, [currentFile, isScaledExport, targetFormat]);
 
   const status = useMemo(() => {
     if (statusKey === 'importing') return t.importing;
@@ -365,6 +379,7 @@ export default function HomePage() {
       const format = getModelFormat(file.name);
       const nextTarget = meshModelFormats.find((entry) => entry !== format) ?? 'stl';
       setTargetFormat(nextTarget);
+      setScalePercent(100);
       setCurrentFile({ name: file.name, size: file.size, format });
       const buffer = await readFileWithProgress(file, (percent) => {
         setProgressPercent(percent);
@@ -396,7 +411,7 @@ export default function HomePage() {
 
   async function handleConvert() {
     if (!currentFile || !modelObject) return;
-    if (!isCadModelFormat(currentFile.format) && currentFile.format === targetFormat) {
+    if (!isScaledExport && !isCadModelFormat(currentFile.format) && currentFile.format === targetFormat) {
       setError(t.unsupportedSameFormat);
       return;
     }
@@ -413,6 +428,7 @@ export default function HomePage() {
         sourceFormat: currentFile.format,
         targetFormat,
         object: modelObject,
+        scaleFactor,
       });
       if (downloadUrlRef.current) URL.revokeObjectURL(downloadUrlRef.current);
       const url = URL.createObjectURL(result.blob);
@@ -482,6 +498,16 @@ export default function HomePage() {
         t.fallback,
       )} mm`
     : '--';
+  const scaledDimensions = measurement
+    ? `${formatNumber(measurement.dimensionsMm.x * scaleFactor, language, t.fallback)} × ${formatNumber(measurement.dimensionsMm.y * scaleFactor, language, t.fallback)} × ${formatNumber(
+        measurement.dimensionsMm.z * scaleFactor,
+        language,
+        t.fallback,
+      )} mm`
+    : '--';
+  const scaledVolume = measurement?.volumeCm3 ? `${formatNumber(measurement.volumeCm3 * scaleFactor ** 3, language, t.fallback, 2)} cm³` : '--';
+  const scaledSurfaceArea = measurement?.surfaceAreaMm2 ? `${formatNumber(measurement.surfaceAreaMm2 * scaleFactor ** 2, language, t.fallback, 0)} mm²` : '--';
+  const scaleRisk = scaleFactor < 0.5 ? t.scaleRiskSmall : scaleFactor > 2 ? t.scaleRiskLarge : null;
   const formattedCenterOfMass = measurement?.centerOfMassMm
     ? `${formatNumber(measurement.centerOfMassMm.x, language, t.fallback, 2)}, ${formatNumber(measurement.centerOfMassMm.y, language, t.fallback, 2)}, ${formatNumber(
         measurement.centerOfMassMm.z,
@@ -633,6 +659,72 @@ export default function HomePage() {
                 ))}
               </select>
             </label>
+            <div className="mt-4 grid gap-3 rounded-md border border-slate-100 bg-slate-50 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs font-black text-[#0b4f9c]">{t.scaleSettings}</span>
+                <div className="inline-flex rounded-md border border-slate-200 bg-white p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setScalePercent(100)}
+                    className={`h-8 rounded px-2 text-xs font-black transition ${!isScaledExport ? 'bg-[#0b4f9c] text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+                  >
+                    {t.keepOriginalScale}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setScalePercent((value) => (value === 100 ? 80 : value))}
+                    className={`h-8 rounded px-2 text-xs font-black transition ${isScaledExport ? 'bg-[#0b4f9c] text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+                  >
+                    {t.scaleUniform}
+                  </button>
+                </div>
+              </div>
+              <label className="grid gap-1 text-xs font-bold text-slate-500">
+                <span>{t.scalePercent}</span>
+                <div className="grid grid-cols-[40px_1fr_40px] gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setScalePercent((value) => Math.max(1, value - 5))}
+                    className="h-9 rounded-md border border-slate-200 bg-white text-sm font-black text-[#0b4f9c] transition hover:bg-cyan-50"
+                  >
+                    -
+                  </button>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={scalePercent}
+                      onChange={(event) => setScalePercent(Math.max(1, Number(event.target.value) || 1))}
+                      className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 pr-8 text-sm font-black text-slate-900 outline-none focus:border-cyan-600"
+                    />
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">%</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setScalePercent((value) => value + 5)}
+                    className="h-9 rounded-md border border-slate-200 bg-white text-sm font-black text-[#0b4f9c] transition hover:bg-cyan-50"
+                  >
+                    +
+                  </button>
+                </div>
+              </label>
+              <div className="grid gap-1 border-t border-slate-200 pt-2 text-xs font-bold text-slate-500">
+                <div className="flex justify-between gap-3">
+                  <span>{t.scaledDimensions}</span>
+                  <span className="text-right text-slate-900">{scaledDimensions}</span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span>{t.scaledVolume}</span>
+                  <span className="text-right text-slate-900">{scaledVolume}</span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span>{t.scaledSurfaceArea}</span>
+                  <span className="text-right text-slate-900">{scaledSurfaceArea}</span>
+                </div>
+              </div>
+              {scaleRisk ? <p className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs font-bold leading-5 text-amber-800">{scaleRisk}</p> : null}
+            </div>
             <p className="mt-3 text-xs font-medium leading-5 text-slate-500">{t.cadHint}</p>
             <button
               type="button"
@@ -641,7 +733,7 @@ export default function HomePage() {
               className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#0b4f9c] px-3 text-sm font-black text-white shadow-sm transition hover:bg-[#083f7e] disabled:cursor-not-allowed disabled:bg-slate-300"
             >
               {isConverting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileArchive className="h-4 w-4" />}
-              {isConverting ? t.converting : t.convert}
+              {isConverting ? t.converting : isScaledExport && currentFile?.format === targetFormat ? t.scaleAndDownload : isScaledExport ? t.scaleAndConvert : t.convert}
             </button>
             {downloadFile ? (
               <a

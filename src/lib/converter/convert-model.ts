@@ -13,11 +13,12 @@ function mimeTypeForFormat(format: ConversionInput['targetFormat']) {
 }
 
 export async function convertModel(input: ConversionInput): Promise<ConversionResult> {
-  const blob = await exportModelObject(input.object, input.targetFormat);
+  const blob = await exportModelObject(input.object, input.targetFormat, input.scaleFactor);
   const mimeType = mimeTypeForFormat(input.targetFormat);
+  const scaleSuffix = input.scaleFactor && input.scaleFactor !== 1 ? `-scaled-${Math.round(input.scaleFactor * 100)}pct` : '';
   return {
     blob: blob.type ? blob : new Blob([blob], { type: mimeType }),
-    fileName: `${stripExtension(input.fileName)}.${input.targetFormat}`,
+    fileName: `${stripExtension(input.fileName)}${scaleSuffix}.${input.targetFormat}`,
     mimeType,
   };
 }

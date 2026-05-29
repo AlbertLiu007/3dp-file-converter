@@ -564,7 +564,7 @@ export default function HomePage() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".stl,.obj,.ply,.glb,.step,.stp"
+                accept=".stl,.obj,.ply,.glb,.3mf,.step,.stp"
                 className="hidden"
                 onChange={(event) => {
                   const file = event.target.files?.[0];

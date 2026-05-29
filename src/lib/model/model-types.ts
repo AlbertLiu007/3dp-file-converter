@@ -1,8 +1,9 @@
 import type * as THREE from 'three';
 
 export type MeshModelFormat = 'stl' | 'obj' | 'ply' | 'glb';
+export type ImportOnlyMeshModelFormat = '3mf';
 export type CadModelFormat = 'step' | 'stp';
-export type ModelFormat = MeshModelFormat | CadModelFormat;
+export type ModelFormat = MeshModelFormat | ImportOnlyMeshModelFormat | CadModelFormat;
 
 export type ParsedModel = {
   fileName: string;
@@ -30,14 +31,15 @@ export type ModelMeasurement = {
 };
 
 export const meshModelFormats: MeshModelFormat[] = ['stl', 'obj', 'ply', 'glb'];
+export const importOnlyMeshModelFormats: ImportOnlyMeshModelFormat[] = ['3mf'];
 export const cadModelFormats: CadModelFormat[] = ['step', 'stp'];
 
 export function getModelFormat(fileName: string): ModelFormat {
   const extension = fileName.split('.').pop()?.toLowerCase();
-  if (extension === 'stl' || extension === 'obj' || extension === 'ply' || extension === 'glb' || extension === 'step' || extension === 'stp') {
+  if (extension === 'stl' || extension === 'obj' || extension === 'ply' || extension === 'glb' || extension === '3mf' || extension === 'step' || extension === 'stp') {
     return extension;
   }
-  throw new Error('暂不支持该模型格式。请使用 STL、OBJ、PLY、GLB、STEP 或 STP 文件。');
+  throw new Error('暂不支持该模型格式。请使用 STL、OBJ、PLY、GLB、3MF、STEP 或 STP 文件。');
 }
 
 export function isCadModelFormat(format: string): format is CadModelFormat {

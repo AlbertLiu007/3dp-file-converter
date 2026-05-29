@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { ThreeMFLoader } from 'three/examples/jsm/loaders/3MFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -99,6 +100,10 @@ export async function parseModelBuffer(buffer: ArrayBuffer, format: ModelFormat)
     return new Promise<THREE.Object3D>((resolve, reject) => {
       new GLTFLoader().parse(buffer, '', (gltf) => resolve(gltf.scene), reject);
     });
+  }
+
+  if (format === '3mf') {
+    return new ThreeMFLoader().parse(buffer);
   }
 
   if (isCadModelFormat(format)) return parseCadBuffer(buffer, format);

@@ -19,6 +19,13 @@ function arrayBufferBlob(content: ArrayBuffer, mimeType: string) {
   return new Blob([content], { type: mimeType });
 }
 
+function binaryBlob(content: ArrayBuffer | ArrayBufferView, mimeType: string) {
+  if (content instanceof ArrayBuffer) return new Blob([content], { type: mimeType });
+  const view = new Uint8Array(content.buffer, content.byteOffset, content.byteLength);
+  const copy = new Uint8Array(view);
+  return new Blob([copy.buffer], { type: mimeType });
+}
+
 function exportGlb(object: THREE.Object3D) {
   return new Promise<Blob>((resolve, reject) => {
     new GLTFExporter().parse(
@@ -41,11 +48,12 @@ function exportPly(object: THREE.Object3D) {
     const result = new PLYExporter().parse(
       object,
       (content) => {
-        resolve(textBlob(content, 'application/octet-stream'));
+        resolve(content instanceof ArrayBuffer ? arrayBufferBlob(content, 'application/octet-stream') : textBlob(content, 'application/octet-stream'));
       },
-      { binary: false },
+      { binary: true, littleEndian: true },
     );
-    if (typeof result === 'string') resolve(textBlob(result, 'application/octet-stream'));
+    if (result instanceof ArrayBuffer) resolve(arrayBufferBlob(result, 'application/octet-stream'));
+    else if (typeof result === 'string') resolve(textBlob(result, 'application/octet-stream'));
   });
 }
 
@@ -53,8 +61,8 @@ export async function exportModelObject(object: THREE.Object3D, targetFormat: Me
   const exportObject = cloneForExport(object);
 
   if (targetFormat === 'stl') {
-    const content = new STLExporter().parse(exportObject, { binary: false });
-    return textBlob(content, 'model/stl');
+    const content = new STLExporter().parse(exportObject, { binary: true });
+    return typeof content === 'string' ? textBlob(content, 'model/stl') : binaryBlob(content, 'model/stl');
   }
 
   if (targetFormat === 'obj') {

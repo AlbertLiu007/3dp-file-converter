@@ -404,6 +404,9 @@ export default function HomePage() {
     setError(null);
     setIsConverting(true);
     setStatusKey('converting');
+    if (measurement && measurement.triangleCount > 1_000_000 && (targetFormat === 'stl' || targetFormat === 'ply')) {
+      setError(t.largeMeshConversionHint(targetFormat));
+    }
     try {
       const result = await convertModel({
         fileName: currentFile.name,

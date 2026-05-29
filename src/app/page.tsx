@@ -140,6 +140,31 @@ function createEdgeOverlay(edges: [THREE.Vector3, THREE.Vector3][], color: strin
   return new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color, depthTest: false, linewidth: 2 }));
 }
 
+function createModelEdgeOverlay(object: THREE.Object3D, color: string) {
+  const group = new THREE.Group();
+  object.updateMatrixWorld(true);
+
+  object.traverse((entry) => {
+    if (!(entry instanceof THREE.Mesh)) return;
+    const geometry = new THREE.EdgesGeometry(entry.geometry, 28);
+    const lines = new THREE.LineSegments(
+      geometry,
+      new THREE.LineBasicMaterial({
+        color,
+        depthTest: true,
+        opacity: 0.72,
+        transparent: true,
+      }),
+    );
+    entry.updateMatrixWorld(true);
+    lines.matrix.copy(entry.matrixWorld);
+    lines.matrixAutoUpdate = false;
+    group.add(lines);
+  });
+
+  return group;
+}
+
 function ModelEngineeringView({
   label,
   mode,
@@ -177,15 +202,19 @@ function ModelEngineeringView({
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     host.appendChild(renderer.domElement);
 
-    scene.add(new THREE.AmbientLight(0xffffff, 1.8));
-    const keyLight = new THREE.DirectionalLight(0xffffff, 2.2);
-    keyLight.position.set(90, 130, 120);
+    scene.add(new THREE.AmbientLight(0xffffff, 1.15));
+    const keyLight = new THREE.DirectionalLight(0xffffff, 2.45);
+    keyLight.position.set(-140, 180, 110);
     scene.add(keyLight);
+    const fillLight = new THREE.DirectionalLight(0xdff8ff, 0.55);
+    fillLight.position.set(120, 70, -140);
+    scene.add(fillLight);
 
     const mountedObject = object.clone(true);
-    applyModelMaterial(mountedObject, '#cdeef6');
+    applyModelMaterial(mountedObject, '#d7f3f7');
     fitModelToOrigin(mountedObject, 112);
     scene.add(mountedObject);
+    scene.add(createModelEdgeOverlay(mountedObject, '#31515a'));
 
     const overlayGroup = new THREE.Group();
     if (annotation) {

@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import { cookies } from 'next/headers';
+import { UnionAMLanguageProvider, type UnionAMLanguage } from '@unionam/shared-i18n';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -13,9 +15,13 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const language = cookies().get('unionam.language')?.value === 'en' ? 'en' : 'zh';
+
   return (
-    <html lang="zh-CN">
-      <body>{children}</body>
+    <html lang={language === 'en' ? 'en' : 'zh-CN'}>
+      <body>
+        <UnionAMLanguageProvider initialLanguage={language as UnionAMLanguage}>{children}</UnionAMLanguageProvider>
+      </body>
     </html>
   );
 }

@@ -2,7 +2,6 @@
 
 import { ChevronDown, Globe2, Languages } from 'lucide-react';
 import Image from 'next/image';
-import Link from 'next/link';
 import { useState } from 'react';
 
 export type ToolLanguage = 'zh' | 'en';
@@ -52,18 +51,18 @@ export function ToolHeader({
       <div className="mx-auto max-w-[1480px] px-5 py-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 flex-wrap items-center gap-x-5 gap-y-3">
-            <Link href={homeHref} className="flex min-w-0 items-center gap-4">
+            <a href={homeHref} className="flex min-w-0 items-center gap-4">
               <Image src={logoSrc} alt="UnionAM" width={186} height={56} priority className="h-10 w-auto shrink-0" />
               <div className="min-w-0">
                 <div className="text-sm font-medium tracking-normal text-slate-800">{labels.appTitle}</div>
                 <div className="mt-0.5 text-[11px] font-normal text-slate-500">{labels.appSubtitle}</div>
               </div>
-            </Link>
+            </a>
 
             {navItems.length > 0 ? (
               <nav className="flex flex-wrap items-center gap-2">
                 {navItems.map((item) => (
-                  <Link
+                  <a
                     key={item.href}
                     href={item.href}
                     className={`inline-flex h-10 items-center rounded-md px-3.5 text-base font-black transition ${
@@ -71,7 +70,7 @@ export function ToolHeader({
                     }`}
                   >
                     {getNavLabel(item)}
-                  </Link>
+                  </a>
                 ))}
               </nav>
             ) : null}

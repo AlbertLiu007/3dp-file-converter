@@ -515,7 +515,7 @@ export default function HomePage() {
   return (
     <main className="min-h-screen bg-slate-100 text-slate-950">
       <div className="print:hidden">
-        <ToolHeader language={language} labels={t} logoSrc="/converter/brand/unionam-logo.png" homeHref="/" navItems={navItems} onLanguageChange={setLanguage} />
+        <ToolHeader language={language} labels={t} logoSrc="/brand/unionam-logo.png" homeHref="/" navItems={navItems} onLanguageChange={setLanguage} />
       </div>
 
       <div className="mx-auto grid max-w-[1480px] items-start gap-4 px-5 py-5 lg:grid-cols-[minmax(0,1fr)_430px]">

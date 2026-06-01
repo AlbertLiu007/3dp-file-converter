@@ -39,6 +39,18 @@ function triangleBucket(triangleCount: number) {
   return '1M+';
 }
 
+function downloadBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  link.rel = 'noopener';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 type StatusKey = 'initial' | 'importing' | 'parsing' | 'measuring' | 'completed' | 'converting' | 'readyToDownload' | 'parseFailed' | 'convertFailed';
 
 const MAX_MODEL_FILE_SIZE_BYTES = 300 * 1024 * 1024;
@@ -349,7 +361,7 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [isConverting, setIsConverting] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
-  const [downloadFile, setDownloadFile] = useState<{ name: string; url: string } | null>(null);
+  const [downloadFile, setDownloadFile] = useState<{ name: string; url: string; blob: Blob } | null>(null);
 
   const targetOptions = useMemo(() => {
     if (!currentFile || isCadModelFormat(currentFile.format)) return meshModelFormats;
@@ -478,9 +490,10 @@ export default function HomePage() {
         scaleFactor,
       });
       if (downloadUrlRef.current) URL.revokeObjectURL(downloadUrlRef.current);
-      const url = URL.createObjectURL(result.blob);
+      const downloadBlobWithName = new File([result.blob], result.fileName, { type: result.mimeType || result.blob.type });
+      const url = URL.createObjectURL(downloadBlobWithName);
       downloadUrlRef.current = url;
-      setDownloadFile({ name: result.fileName, url });
+      setDownloadFile({ name: result.fileName, url, blob: downloadBlobWithName });
       setStatusKey('readyToDownload');
       trackEvent('converter_convert_success', {
         language,
@@ -817,6 +830,10 @@ export default function HomePage() {
               <a
                 href={downloadFile.url}
                 download={downloadFile.name}
+                onClick={(event) => {
+                  event.preventDefault();
+                  downloadBlob(downloadFile.blob, downloadFile.name);
+                }}
                 data-umami-event="converter_download_click"
                 data-umami-event-language={language}
                 data-umami-event-target-format={targetFormat}

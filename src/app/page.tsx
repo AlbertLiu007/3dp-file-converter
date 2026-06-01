@@ -40,10 +40,12 @@ function triangleBucket(triangleCount: number) {
 }
 
 function downloadBlob(blob: Blob, fileName: string) {
-  const url = URL.createObjectURL(blob);
+  const downloadableBlob = blob.type === 'application/octet-stream' ? blob : new Blob([blob], { type: 'application/octet-stream' });
+  const url = URL.createObjectURL(downloadableBlob);
   const link = document.createElement('a');
   link.href = url;
   link.download = fileName;
+  link.style.display = 'none';
   link.rel = 'noopener';
   document.body.appendChild(link);
   link.click();
@@ -827,11 +829,9 @@ export default function HomePage() {
               {isConverting ? t.converting : isScaledExport && currentFile?.format === targetFormat ? t.scaleAndDownload : isScaledExport ? t.scaleAndConvert : t.convert}
             </button>
             {downloadFile ? (
-              <a
-                href={downloadFile.url}
-                download={downloadFile.name}
-                onClick={(event) => {
-                  event.preventDefault();
+              <button
+                type="button"
+                onClick={() => {
                   downloadBlob(downloadFile.blob, downloadFile.name);
                 }}
                 data-umami-event="converter_download_click"
@@ -841,7 +841,7 @@ export default function HomePage() {
               >
                 <Download className="h-4 w-4" />
                 {t.download}
-              </a>
+              </button>
             ) : null}
           </section>
 

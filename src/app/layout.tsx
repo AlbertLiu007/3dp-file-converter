@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
+import Script from 'next/script';
 import { UnionAMLanguageProvider, type UnionAMLanguage } from '@unionam/shared-i18n';
 import './globals.css';
 
@@ -50,6 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: languageBootstrapScript }} />
       </head>
       <body>
+        <Script defer src="https://cloud.umami.is/script.js" data-website-id="05e5f00c-82a3-4dcf-9d5a-b50f434eb92e" />
         <UnionAMLanguageProvider initialLanguage={language as UnionAMLanguage}>{children}</UnionAMLanguageProvider>
       </body>
     </html>

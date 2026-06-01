@@ -16,6 +16,7 @@ export type ToolHeaderNavItem = {
   label: string;
   href: string;
   active?: boolean;
+  eventName?: string;
 };
 
 export function ToolHeader({
@@ -40,6 +41,12 @@ export function ToolHeader({
     setLanguageOpen(false);
   }
 
+  function getNavEventName(href: string) {
+    if (href.includes('/quote')) return 'header_quote_click';
+    if (href.includes('/converter')) return 'header_converter_click';
+    return undefined;
+  }
+
   function getNavLabel(item: ToolHeaderNavItem) {
     if (item.href === '/quote') return language === 'zh' ? '自动报价' : 'Auto Quote';
     return item.label;
@@ -50,7 +57,7 @@ export function ToolHeader({
       <div className="mx-auto max-w-[1480px] px-5 py-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 flex-wrap items-center gap-x-5 gap-y-3">
-            <a href={homeHref} className="flex min-w-0 items-center gap-4">
+            <a href={homeHref} className="flex min-w-0 items-center gap-4" data-umami-event="header_home_click">
               <img src={logoSrc} alt="UnionAM" width={186} height={56} className="h-10 w-auto shrink-0" decoding="async" fetchPriority="high" />
               <div className="min-w-0">
                 <div className="text-sm font-medium tracking-normal text-slate-800">{labels.appTitle}</div>
@@ -64,6 +71,7 @@ export function ToolHeader({
                   <a
                     key={item.href}
                     href={item.href}
+                    data-umami-event={item.eventName ?? getNavEventName(item.href)}
                     className={`inline-flex h-10 items-center rounded-md px-3.5 text-base font-black transition ${
                       item.active ? 'bg-cyan-50 text-[#0b4f9c]' : 'text-[#0b4f9c] hover:bg-cyan-50 hover:text-[#083f7e]'
                     }`}
@@ -90,6 +98,7 @@ export function ToolHeader({
                 <button
                   type="button"
                   onClick={() => chooseLanguage('zh')}
+                  data-umami-event="language_change_zh"
                   className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm font-bold ${language === 'zh' ? 'text-[#0b4f9c]' : 'text-slate-950 hover:bg-slate-50'}`}
                 >
                   <Languages className="h-4 w-4" />
@@ -98,6 +107,7 @@ export function ToolHeader({
                 <button
                   type="button"
                   onClick={() => chooseLanguage('en')}
+                  data-umami-event="language_change_en"
                   className={`mt-1 flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm font-bold ${language === 'en' ? 'text-[#0b4f9c]' : 'text-slate-950 hover:bg-slate-50'}`}
                 >
                   <Languages className="h-4 w-4" />

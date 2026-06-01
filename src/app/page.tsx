@@ -13,6 +13,32 @@ import { applyModelMaterial, disposeObjectResources, fitModelToOrigin } from '@/
 import { parseModelBuffer } from '@/lib/model/parse-model';
 import { getModelFormat, isCadModelFormat, meshModelFormats, type MeshModelFormat, type ModelFormat, type ModelMeasurement } from '@/lib/model/model-types';
 
+declare global {
+  interface Window {
+    umami?: {
+      track: (eventName: string, eventData?: Record<string, string | number | boolean | null>) => void;
+    };
+  }
+}
+
+function trackEvent(eventName: string, eventData?: Record<string, string | number | boolean | null>) {
+  window.umami?.track(eventName, eventData);
+}
+
+function fileSizeBucket(bytes: number) {
+  if (bytes < 5 * 1024 * 1024) return '<5MB';
+  if (bytes < 20 * 1024 * 1024) return '5-20MB';
+  if (bytes < 100 * 1024 * 1024) return '20-100MB';
+  return '100MB+';
+}
+
+function triangleBucket(triangleCount: number) {
+  if (triangleCount < 10_000) return '<10k';
+  if (triangleCount < 100_000) return '10k-100k';
+  if (triangleCount < 1_000_000) return '100k-1M';
+  return '1M+';
+}
+
 type StatusKey = 'initial' | 'importing' | 'parsing' | 'measuring' | 'completed' | 'converting' | 'readyToDownload' | 'parseFailed' | 'convertFailed';
 
 const MAX_MODEL_FILE_SIZE_BYTES = 300 * 1024 * 1024;
@@ -368,6 +394,11 @@ export default function HomePage() {
       setProgressPercent(null);
       setStatusKey('parseFailed');
       setError(t.fileTooLarge(maxModelFileSizeLabel));
+      trackEvent('converter_model_parse_failed', {
+        language,
+        file_size_bucket: fileSizeBucket(file.size),
+        reason: 'file_too_large',
+      });
       return;
     }
     setProgressPercent(1);
@@ -399,6 +430,12 @@ export default function HomePage() {
       setRiskAnalysis(risks);
       setProgressPercent(100);
       setStatusKey('completed');
+      trackEvent('converter_model_parse_success', {
+        language,
+        source_format: format,
+        file_size_bucket: fileSizeBucket(file.size),
+        triangle_bucket: triangleBucket(measured.triangleCount),
+      });
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : t.modelParseFailed);
       setProgressPercent(null);
@@ -406,11 +443,21 @@ export default function HomePage() {
       setModelObject(null);
       setMeasurement(null);
       setRiskAnalysis(null);
+      trackEvent('converter_model_parse_failed', {
+        language,
+        file_size_bucket: fileSizeBucket(file.size),
+      });
     }
   }
 
   async function handleConvert() {
     if (!currentFile || !modelObject) return;
+    trackEvent('converter_convert_click', {
+      language,
+      source_format: currentFile.format,
+      target_format: targetFormat,
+      scale_percent: scalePercent,
+    });
     if (!isScaledExport && !isCadModelFormat(currentFile.format) && currentFile.format === targetFormat) {
       setError(t.unsupportedSameFormat);
       return;
@@ -435,9 +482,21 @@ export default function HomePage() {
       downloadUrlRef.current = url;
       setDownloadFile({ name: result.fileName, url });
       setStatusKey('readyToDownload');
+      trackEvent('converter_convert_success', {
+        language,
+        source_format: currentFile.format,
+        target_format: targetFormat,
+        scale_percent: scalePercent,
+      });
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : t.convertFailed);
       setStatusKey('convertFailed');
+      trackEvent('converter_convert_failed', {
+        language,
+        source_format: currentFile.format,
+        target_format: targetFormat,
+        scale_percent: scalePercent,
+      });
     } finally {
       setIsConverting(false);
     }
@@ -445,6 +504,11 @@ export default function HomePage() {
 
   async function handleExportPdf() {
     if (!measurement || isExportingPdf) return;
+    trackEvent('converter_export_pdf_click', {
+      language,
+      source_format: currentFile?.format ?? null,
+      triangle_bucket: triangleBucket(measurement.triangleCount),
+    });
     const reportElement = document.getElementById('technical-report');
     if (!reportElement) return;
 
@@ -577,7 +641,10 @@ export default function HomePage() {
               ) : (
                 <button
                   type="button"
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => {
+                    trackEvent('converter_upload_area_click', { language });
+                    fileInputRef.current?.click();
+                  }}
                   className={`absolute inset-5 flex flex-col items-center justify-center rounded-lg border-2 border-dashed bg-white/60 text-center transition hover:bg-cyan-50/50 ${
                     error ? 'border-amber-300 hover:border-amber-400' : 'border-slate-300 hover:border-cyan-500'
                   }`}
@@ -605,7 +672,10 @@ export default function HomePage() {
             <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => {
+                  trackEvent('converter_select_model_click', { language });
+                  fileInputRef.current?.click();
+                }}
                 className="inline-flex h-10 items-center gap-2 rounded-md bg-[#0b4f9c] px-3 text-sm font-black text-white shadow-sm transition hover:bg-[#083f7e]"
               >
                 <FileUp className="h-4 w-4" />
@@ -649,7 +719,15 @@ export default function HomePage() {
               <span>{t.targetFormat}</span>
               <select
                 value={targetFormat}
-                onChange={(event) => setTargetFormat(event.target.value as MeshModelFormat)}
+                onChange={(event) => {
+                  const nextFormat = event.target.value as MeshModelFormat;
+                  setTargetFormat(nextFormat);
+                  trackEvent('converter_target_format_change', {
+                    language,
+                    source_format: currentFile?.format ?? null,
+                    target_format: nextFormat,
+                  });
+                }}
                 className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-black text-slate-900 outline-none focus:border-cyan-600"
               >
                 {targetOptions.map((format) => (
@@ -739,6 +817,9 @@ export default function HomePage() {
               <a
                 href={downloadFile.url}
                 download={downloadFile.name}
+                data-umami-event="converter_download_click"
+                data-umami-event-language={language}
+                data-umami-event-target-format={targetFormat}
                 className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 text-sm font-black text-emerald-700 transition hover:bg-emerald-100"
               >
                 <Download className="h-4 w-4" />

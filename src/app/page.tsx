@@ -826,7 +826,7 @@ export default function HomePage() {
               className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#0b4f9c] px-3 text-sm font-black text-white shadow-sm transition hover:bg-[#083f7e] disabled:cursor-not-allowed disabled:bg-slate-300"
             >
               {isConverting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileArchive className="h-4 w-4" />}
-              {isConverting ? t.converting : isScaledExport && currentFile?.format === targetFormat ? t.scaleAndDownload : isScaledExport ? t.scaleAndConvert : t.convert}
+              {isConverting ? t.converting : isScaledExport ? t.scaleAction : t.convert}
             </button>
             {downloadFile ? (
               <button

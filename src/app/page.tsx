@@ -5,13 +5,10 @@ import { ToolHeader } from '@unionam/shared-ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { ThreeModelViewer } from '@/components/model-viewer/three-model-viewer';
-import { convertModel } from '@/lib/converter/convert-model';
 import { useLanguage } from '@/lib/i18n/use-language';
-import { measureModel } from '@/lib/model/model-measure';
-import { analyzeModelRisk, type ModelRiskAnalysis } from '@/lib/model/model-risk';
 import { applyModelMaterial, disposeObjectResources, fitModelToOrigin } from '@/lib/model/model-scene';
-import { parseModelBuffer } from '@/lib/model/parse-model';
 import { getModelFormat, isCadModelFormat, meshModelFormats, type MeshModelFormat, type ModelFormat, type ModelMeasurement } from '@/lib/model/model-types';
+import type { ModelRiskAnalysis } from '@/lib/model/model-risk';
 
 declare global {
   interface Window {
@@ -433,6 +430,11 @@ export default function HomePage() {
       setProgressPercent(70);
       setStatusKey('parsing');
       await waitForPaint();
+      const [{ parseModelBuffer }, { measureModel }, { analyzeModelRisk }] = await Promise.all([
+        import('@/lib/model/parse-model'),
+        import('@/lib/model/model-measure'),
+        import('@/lib/model/model-risk'),
+      ]);
       const object = await parseModelBuffer(buffer, format);
       setProgressPercent(90);
       setStatusKey('measuring');
@@ -484,6 +486,7 @@ export default function HomePage() {
       setError(t.largeMeshConversionHint(targetFormat));
     }
     try {
+      const { convertModel } = await import('@/lib/converter/convert-model');
       const result = await convertModel({
         fileName: currentFile.name,
         sourceFormat: currentFile.format,

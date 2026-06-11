@@ -53,6 +53,8 @@ function downloadBlob(blob: Blob, fileName: string) {
 type StatusKey = 'initial' | 'importing' | 'parsing' | 'measuring' | 'completed' | 'converting' | 'readyToDownload' | 'parseFailed' | 'convertFailed';
 
 const MAX_MODEL_FILE_SIZE_BYTES = 300 * 1024 * 1024;
+const OBJ_TRIANGLE_EXPORT_LIMIT = 1_000_000;
+const GLB_TRIANGLE_EXPORT_LIMIT = 2_000_000;
 
 type SerializedVector = [number, number, number];
 type SerializedTriangle = [SerializedVector, SerializedVector, SerializedVector];
@@ -202,6 +204,13 @@ function parseModelInWorker(fileName: string, buffer: ArrayBuffer) {
 
     worker.postMessage({ id, fileName, buffer }, [buffer]);
   });
+}
+
+function getFormatLimitReason(format: MeshModelFormat, measurement: ModelMeasurement | null, labels: ReturnType<typeof useLanguage>['t']) {
+  if (!measurement) return null;
+  if (format === 'obj' && measurement.triangleCount > OBJ_TRIANGLE_EXPORT_LIMIT) return labels.objDisabledForLargeMesh(OBJ_TRIANGLE_EXPORT_LIMIT);
+  if (format === 'glb' && measurement.triangleCount > GLB_TRIANGLE_EXPORT_LIMIT) return labels.glbDisabledForLargeMesh(GLB_TRIANGLE_EXPORT_LIMIT);
+  return null;
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {
@@ -475,10 +484,11 @@ export default function HomePage() {
   const [downloadFile, setDownloadFile] = useState<{ name: string; url: string; blob: Blob } | null>(null);
 
   const targetOptions = useMemo(() => {
-    if (!currentFile || isCadModelFormat(currentFile.format)) return meshModelFormats;
-    if (scalePercent !== 100) return meshModelFormats;
-    return meshModelFormats.filter((format) => format !== currentFile.format);
-  }, [currentFile, scalePercent]);
+    const availableFormats = meshModelFormats.filter((format) => !getFormatLimitReason(format, measurement, t));
+    if (!currentFile || isCadModelFormat(currentFile.format)) return availableFormats;
+    if (scalePercent !== 100) return availableFormats;
+    return availableFormats.filter((format) => format !== currentFile.format);
+  }, [currentFile, measurement, scalePercent, t]);
 
   const scaleFactor = useMemo(() => {
     if (!Number.isFinite(scalePercent)) return 1;
@@ -489,8 +499,13 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!currentFile || isCadModelFormat(currentFile.format) || isScaledExport || currentFile.format !== targetFormat) return;
-    setTargetFormat(meshModelFormats.find((format) => format !== currentFile.format) ?? 'stl');
-  }, [currentFile, isScaledExport, targetFormat]);
+    setTargetFormat(targetOptions.find((format) => format !== currentFile.format) ?? targetOptions[0] ?? 'stl');
+  }, [currentFile, isScaledExport, targetFormat, targetOptions]);
+
+  useEffect(() => {
+    if (targetOptions.includes(targetFormat)) return;
+    setTargetFormat(targetOptions[0] ?? 'stl');
+  }, [targetFormat, targetOptions]);
 
   const status = useMemo(() => {
     if (statusKey === 'importing') return t.importing;
@@ -588,6 +603,12 @@ export default function HomePage() {
 
   async function handleConvert() {
     if (!currentFile || !modelObject) return;
+    const targetFormatLimitReason = getFormatLimitReason(targetFormat, measurement, t);
+    if (targetFormatLimitReason) {
+      setError(targetFormatLimitReason);
+      setStatusKey('convertFailed');
+      return;
+    }
     trackEvent('converter_convert_click', {
       language,
       source_format: currentFile.format,
@@ -710,6 +731,7 @@ export default function HomePage() {
   const scaledVolume = measurement?.volumeCm3 ? `${formatNumber(measurement.volumeCm3 * scaleFactor ** 3, language, t.fallback, 2)} cm³` : '--';
   const scaledSurfaceArea = measurement?.surfaceAreaMm2 ? `${formatNumber(measurement.surfaceAreaMm2 * scaleFactor ** 2, language, t.fallback, 0)} mm²` : '--';
   const scaleRisk = scaleFactor < 0.5 ? t.scaleRiskSmall : scaleFactor > 2 ? t.scaleRiskLarge : null;
+  const formatLimitMessages = meshModelFormats.map((format) => getFormatLimitReason(format, measurement, t)).filter((message): message is string => Boolean(message));
   const formattedCenterOfMass = measurement?.centerOfMassMm
     ? `${formatNumber(measurement.centerOfMassMm.x, language, t.fallback, 2)}, ${formatNumber(measurement.centerOfMassMm.y, language, t.fallback, 2)}, ${formatNumber(
         measurement.centerOfMassMm.z,
@@ -874,6 +896,15 @@ export default function HomePage() {
                   </option>
                 ))}
               </select>
+              {formatLimitMessages.length > 0 ? (
+                <div className="grid gap-1">
+                  {formatLimitMessages.map((message) => (
+                    <p key={message} className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs font-bold leading-5 text-amber-800">
+                      {message}
+                    </p>
+                  ))}
+                </div>
+              ) : null}
             </label>
             <div className="mt-4 grid gap-3 rounded-md border border-slate-100 bg-slate-50 p-3">
               <div className="flex items-center justify-between gap-3">

@@ -17,6 +17,14 @@ type OcctMesh = {
   index?: { array: number[] };
 };
 
+type ValidOcctMesh = OcctMesh & {
+  attributes: {
+    position: { array: number[] };
+    normal?: { array: number[] };
+  };
+  index: { array: number[] };
+};
+
 type OcctResult = {
   success: boolean;
   meshes?: OcctMesh[];
@@ -30,6 +38,27 @@ type OcctImportFactory = (options?: Record<string, unknown>) => Promise<OcctApi>
 
 let occtPromise: Promise<OcctApi> | null = null;
 
+const cadTriangulationParams = [
+  {
+    linearUnit: 'millimeter',
+    linearDeflectionType: 'bounding_box_ratio',
+    linearDeflection: 0.005,
+    angularDeflection: 0.8,
+  },
+  {
+    linearUnit: 'millimeter',
+    linearDeflectionType: 'bounding_box_ratio',
+    linearDeflection: 0.001,
+    angularDeflection: 0.5,
+  },
+  {
+    linearUnit: 'millimeter',
+    linearDeflectionType: 'absolute_value',
+    linearDeflection: 0.5,
+    angularDeflection: 0.6,
+  },
+];
+
 async function getOcct() {
   if (!occtPromise) {
     occtPromise = import('occt-import-js').then((module) => {
@@ -42,12 +71,11 @@ async function getOcct() {
   return occtPromise;
 }
 
-function buildOcctObject(meshes: OcctMesh[]) {
+function buildOcctObject(meshes: ValidOcctMesh[]) {
   const group = new THREE.Group();
   for (const mesh of meshes) {
-    const positions = mesh.attributes?.position?.array;
-    const indices = mesh.index?.array;
-    if (!positions || !indices) continue;
+    const positions = mesh.attributes.position.array;
+    const indices = mesh.index.array;
 
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
@@ -66,16 +94,41 @@ function buildOcctObject(meshes: OcctMesh[]) {
   return group;
 }
 
+function isValidOcctMesh(positions: number[] | undefined, indices: number[] | undefined) {
+  return Boolean(positions && indices && positions.length >= 9 && indices.length >= 3 && positions.length % 3 === 0 && indices.length % 3 === 0);
+}
+
+function getValidOcctMeshes(meshes: OcctMesh[]) {
+  return meshes.filter((mesh): mesh is ValidOcctMesh => {
+    const positions = mesh.attributes?.position?.array;
+    const indices = mesh.index?.array;
+    return isValidOcctMesh(positions, indices);
+  });
+}
+
+function countOcctTriangles(meshes: ValidOcctMesh[]) {
+  return meshes.reduce((total, mesh) => total + Math.floor(mesh.index.array.length / 3), 0);
+}
+
 async function parseCadBuffer(buffer: ArrayBuffer, format: CadModelFormat) {
   const occt = await getOcct();
-  const result = occt.ReadFile(normalizeCadFormat(format), new Uint8Array(buffer), {
-    linearUnit: 'millimeter',
-    linearDeflectionType: 'bounding_box_ratio',
-    linearDeflection: 0.001,
-    angularDeflection: 0.5,
-  });
-  if (!result.success || !result.meshes?.length) throw new Error('CAD 文件解析失败，请检查文件是否完整。');
-  return buildOcctObject(result.meshes);
+  const fileBuffer = new Uint8Array(buffer);
+  let lastSuccessfulMeshCount = 0;
+
+  for (const params of cadTriangulationParams) {
+    const result = occt.ReadFile(normalizeCadFormat(format), fileBuffer, params);
+    if (!result.success || !result.meshes?.length) continue;
+
+    lastSuccessfulMeshCount = Math.max(lastSuccessfulMeshCount, result.meshes.length);
+    const validMeshes = getValidOcctMeshes(result.meshes);
+    if (countOcctTriangles(validMeshes) > 0) return buildOcctObject(validMeshes);
+  }
+
+  if (lastSuccessfulMeshCount > 0) {
+    throw new Error('CAD 文件已读取，但未生成有效三角网格。该文件可能是复杂装配、空壳体、外部引用、线框/参考几何，或当前浏览器 CAD 内核暂不支持。');
+  }
+
+  throw new Error('CAD 文件解析失败，请检查文件是否完整，或尝试导出为简化后的 STEP/STP 文件。');
 }
 
 export async function parseModelBuffer(buffer: ArrayBuffer, format: ModelFormat): Promise<THREE.Object3D> {

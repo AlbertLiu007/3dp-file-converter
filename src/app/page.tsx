@@ -473,7 +473,6 @@ export default function HomePage() {
   const [isConverting, setIsConverting] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [downloadFile, setDownloadFile] = useState<{ name: string; url: string; blob: Blob } | null>(null);
-  const restoredCacheRef = useRef(false);
 
   const targetOptions = useMemo(() => {
     if (!currentFile || isCadModelFormat(currentFile.format)) return meshModelFormats;
@@ -505,7 +504,7 @@ export default function HomePage() {
     return t.initialStatus;
   }, [progressPercent, statusKey, t]);
 
-  async function handleFile(file: File, options: { cacheFile?: boolean; restoring?: boolean } = {}) {
+  async function handleFile(file: File) {
     setError(null);
     setDownloadFile(null);
     if (downloadUrlRef.current) URL.revokeObjectURL(downloadUrlRef.current);
@@ -532,10 +531,6 @@ export default function HomePage() {
     setRiskAnalysis(null);
     try {
       const format = getModelFormat(file.name);
-      if (options.cacheFile !== false) {
-        const { saveLastModelFile } = await import('@/lib/model/model-cache');
-        void saveLastModelFile(file);
-      }
       const nextTarget = meshModelFormats.find((entry) => entry !== format) ?? 'stl';
       setTargetFormat(nextTarget);
       setScalePercent(100);
@@ -564,13 +559,8 @@ export default function HomePage() {
         source_format: format,
         file_size_bucket: fileSizeBucket(file.size),
         triangle_bucket: triangleBucket(measured.triangleCount),
-        restored_from_cache: Boolean(options.restoring),
       });
     } catch (nextError) {
-      if (options.restoring) {
-        const { clearLastModelFile } = await import('@/lib/model/model-cache');
-        await clearLastModelFile();
-      }
       setError(nextError instanceof Error ? nextError.message : t.modelParseFailed);
       setProgressPercent(null);
       setStatusKey('parseFailed');
@@ -585,23 +575,15 @@ export default function HomePage() {
   }
 
   useEffect(() => {
-    if (restoredCacheRef.current) return;
-    restoredCacheRef.current = true;
-    let cancelled = false;
-    async function restoreLastModel() {
+    async function clearLegacyModelCache() {
       try {
-        const { loadLastModelFile } = await import('@/lib/model/model-cache');
-        const cachedFile = await loadLastModelFile();
-        if (!cachedFile || cancelled) return;
-        await handleFile(cachedFile, { cacheFile: false, restoring: true });
+        const { clearLastModelFile } = await import('@/lib/model/model-cache');
+        await clearLastModelFile();
       } catch {
-        if (!cancelled) setStatusKey('initial');
+        // Cache cleanup is best-effort; the page should still open as an empty converter.
       }
     }
-    void restoreLastModel();
-    return () => {
-      cancelled = true;
-    };
+    void clearLegacyModelCache();
   }, []);
 
   async function handleConvert() {

@@ -69,6 +69,8 @@ export function ThreeModelViewerClient({ object, color = '#d9eef5', labels }: { 
   const [mode, setMode] = useState<'rotate' | 'pan'>('rotate');
   const [lightMode, setLightMode] = useState<'fixed' | 'camera'>('fixed');
   const [showGrid, setShowGrid] = useState(true);
+  const [isRecovering, setIsRecovering] = useState(false);
+  const [restoreKey, setRestoreKey] = useState(0);
 
   function resetView() {
     const camera = cameraRef.current;
@@ -149,6 +151,7 @@ export function ThreeModelViewerClient({ object, color = '#d9eef5', labels }: { 
     gridRef.current = grid;
 
     let frameId = 0;
+    let isContextLost = false;
 
     if (object) {
       const viewerGroup = new THREE.Group();
@@ -165,6 +168,7 @@ export function ThreeModelViewerClient({ object, color = '#d9eef5', labels }: { 
 
     function animate() {
       frameId = requestAnimationFrame(animate);
+      if (isContextLost) return;
       controls.update();
       if (lightModeRef.current === 'camera') {
         keyLight.position.copy(camera.position);
@@ -177,6 +181,12 @@ export function ThreeModelViewerClient({ object, color = '#d9eef5', labels }: { 
     }
     animate();
 
+    function renderOnce() {
+      if (isContextLost) return;
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
     function handleResize() {
       const mountedHost = hostRef.current;
       if (!mountedHost) return;
@@ -184,12 +194,40 @@ export function ThreeModelViewerClient({ object, color = '#d9eef5', labels }: { 
       camera.updateProjectionMatrix();
       renderer.setSize(mountedHost.clientWidth, mountedHost.clientHeight);
       controls.handleResize();
+      renderOnce();
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState !== 'visible') return;
+      window.requestAnimationFrame(() => {
+        handleResize();
+        renderOnce();
+      });
+    }
+
+    function handleContextLost(event: Event) {
+      event.preventDefault();
+      isContextLost = true;
+      setIsRecovering(true);
+    }
+
+    function handleContextRestored() {
+      setRestoreKey((value) => value + 1);
     }
 
     window.addEventListener('resize', handleResize);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pageshow', handleVisibilityChange);
+    renderer.domElement.addEventListener('webglcontextlost', handleContextLost);
+    renderer.domElement.addEventListener('webglcontextrestored', handleContextRestored);
+    setIsRecovering(false);
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pageshow', handleVisibilityChange);
+      renderer.domElement.removeEventListener('webglcontextlost', handleContextLost);
+      renderer.domElement.removeEventListener('webglcontextrestored', handleContextRestored);
       cancelAnimationFrame(frameId);
       controls.dispose();
       renderer.dispose();
@@ -202,11 +240,16 @@ export function ThreeModelViewerClient({ object, color = '#d9eef5', labels }: { 
       controlsRef.current = null;
       host.innerHTML = '';
     };
-  }, [object, color]);
+  }, [object, color, restoreKey]);
 
   return (
     <div className="absolute inset-0">
       <div ref={hostRef} className="h-full w-full" />
+      {isRecovering ? (
+        <div className="absolute inset-0 grid place-items-center bg-slate-50/80 text-sm font-black text-[#0b4f9c]">
+          {labels.viewerLoading}
+        </div>
+      ) : null}
       <div className="absolute right-3 top-3 flex items-center gap-1.5">
         <button
           type="button"

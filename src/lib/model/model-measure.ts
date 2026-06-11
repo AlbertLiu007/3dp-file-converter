@@ -4,6 +4,9 @@ import type { ModelMeasurement } from './model-types';
 const a = new THREE.Vector3();
 const b = new THREE.Vector3();
 const c = new THREE.Vector3();
+const volumeCross = new THREE.Vector3();
+const areaEdgeA = new THREE.Vector3();
+const areaEdgeB = new THREE.Vector3();
 const weightedCentroid = new THREE.Vector3();
 const triangleCentroid = new THREE.Vector3();
 
@@ -12,15 +15,15 @@ function readTriangleVertex(position: THREE.BufferAttribute | THREE.InterleavedB
 }
 
 function signedTetrahedronVolume(v0: THREE.Vector3, v1: THREE.Vector3, v2: THREE.Vector3) {
-  return v0.dot(b.copy(v1).cross(v2)) / 6;
+  return v0.dot(volumeCross.copy(v1).cross(v2)) / 6;
 }
 
 function triangleArea(v0: THREE.Vector3, v1: THREE.Vector3, v2: THREE.Vector3) {
-  return b.copy(v1).sub(v0).cross(c.copy(v2).sub(v0)).length() / 2;
+  return areaEdgeA.copy(v1).sub(v0).cross(areaEdgeB.copy(v2).sub(v0)).length() / 2;
 }
 
-function accumulateVolume(volume: number, target: THREE.Vector3) {
-  triangleCentroid.copy(a).add(b).add(c).multiplyScalar(0.25);
+function accumulateVolume(v0: THREE.Vector3, v1: THREE.Vector3, v2: THREE.Vector3, volume: number, target: THREE.Vector3) {
+  triangleCentroid.copy(v0).add(v1).add(v2).multiplyScalar(0.25);
   target.addScaledVector(triangleCentroid, volume);
 }
 
@@ -44,7 +47,7 @@ function measureGeometry(mesh: THREE.Mesh) {
       const signedVolume = signedTetrahedronVolume(a, b, c);
       surfaceArea += triangleArea(a, b, c);
       volume += signedVolume;
-      accumulateVolume(signedVolume, geometryWeightedCentroid);
+      accumulateVolume(a, b, c, signedVolume, geometryWeightedCentroid);
       triangles += 1;
     }
   } else {
@@ -55,7 +58,7 @@ function measureGeometry(mesh: THREE.Mesh) {
       const signedVolume = signedTetrahedronVolume(a, b, c);
       surfaceArea += triangleArea(a, b, c);
       volume += signedVolume;
-      accumulateVolume(signedVolume, geometryWeightedCentroid);
+      accumulateVolume(a, b, c, signedVolume, geometryWeightedCentroid);
       triangles += 1;
     }
   }

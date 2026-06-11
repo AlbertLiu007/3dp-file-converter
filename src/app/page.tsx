@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { ThreeModelViewer } from '@/components/model-viewer/three-model-viewer';
 import { useLanguage } from '@/lib/i18n/use-language';
-import { applyModelMaterial, disposeObjectResources, fitModelToOrigin } from '@/lib/model/model-scene';
+import { applyModelMaterial, createModelMaterial, disposeObjectResources, fitModelToOrigin } from '@/lib/model/model-scene';
 import { getModelFormat, isCadModelFormat, meshModelFormats, type MeshModelFormat, type ModelFormat, type ModelMeasurement } from '@/lib/model/model-types';
 import type { ModelRiskAnalysis } from '@/lib/model/model-risk';
 
@@ -54,6 +54,43 @@ type StatusKey = 'initial' | 'importing' | 'parsing' | 'measuring' | 'completed'
 
 const MAX_MODEL_FILE_SIZE_BYTES = 300 * 1024 * 1024;
 
+type SerializedVector = [number, number, number];
+type SerializedTriangle = [SerializedVector, SerializedVector, SerializedVector];
+type SerializedEdge = [SerializedVector, SerializedVector];
+
+type WorkerMesh = {
+  name: string;
+  positions: Float32Array;
+  normals: Float32Array | null;
+  indices: Uint32Array | null;
+  matrix: number[];
+};
+
+type WorkerRiskAnalysis = Omit<ModelRiskAnalysis, 'annotation'> & {
+  annotation: {
+    overhangTriangles: SerializedTriangle[];
+    bottomContactTriangles: SerializedTriangle[];
+    boundaryEdges: SerializedEdge[];
+    nonManifoldEdges: SerializedEdge[];
+  };
+};
+
+type ModelParseWorkerSuccess = {
+  id: string;
+  ok: true;
+  measurement: ModelMeasurement;
+  riskAnalysis: WorkerRiskAnalysis;
+  meshes: WorkerMesh[];
+};
+
+type ModelParseWorkerFailure = {
+  id: string;
+  ok: false;
+  message: string;
+};
+
+type ModelParseWorkerResponse = ModelParseWorkerSuccess | ModelParseWorkerFailure;
+
 function formatNumber(value: number | null | undefined, language: 'zh' | 'en', fallback: string, digits = 1) {
   if (value === null || value === undefined || !Number.isFinite(value)) return fallback;
   return value.toLocaleString(language === 'zh' ? 'zh-CN' : 'en-US', { maximumFractionDigits: digits, minimumFractionDigits: digits });
@@ -89,6 +126,81 @@ function readFileWithProgress(file: File, onProgress: (percent: number) => void)
 function waitForPaint() {
   return new Promise<void>((resolve) => {
     requestAnimationFrame(() => resolve());
+  });
+}
+
+function vectorFromSerialized([x, y, z]: SerializedVector) {
+  return new THREE.Vector3(x, y, z);
+}
+
+function hydrateTriangle(triangle: SerializedTriangle) {
+  return [vectorFromSerialized(triangle[0]), vectorFromSerialized(triangle[1]), vectorFromSerialized(triangle[2])];
+}
+
+function hydrateEdge(edge: SerializedEdge): [THREE.Vector3, THREE.Vector3] {
+  return [vectorFromSerialized(edge[0]), vectorFromSerialized(edge[1])];
+}
+
+function hydrateRiskAnalysis(riskAnalysis: WorkerRiskAnalysis): ModelRiskAnalysis {
+  return {
+    ...riskAnalysis,
+    annotation: {
+      overhangTriangles: riskAnalysis.annotation.overhangTriangles.map(hydrateTriangle),
+      bottomContactTriangles: riskAnalysis.annotation.bottomContactTriangles.map(hydrateTriangle),
+      boundaryEdges: riskAnalysis.annotation.boundaryEdges.map(hydrateEdge),
+      nonManifoldEdges: riskAnalysis.annotation.nonManifoldEdges.map(hydrateEdge),
+    },
+  };
+}
+
+function buildObjectFromWorkerMeshes(meshes: WorkerMesh[]) {
+  const group = new THREE.Group();
+  group.name = 'Imported model';
+
+  meshes.forEach((workerMesh) => {
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(workerMesh.positions, 3));
+    if (workerMesh.normals) geometry.setAttribute('normal', new THREE.BufferAttribute(workerMesh.normals, 3));
+    if (workerMesh.indices) geometry.setIndex(new THREE.BufferAttribute(workerMesh.indices, 1));
+    if (!workerMesh.normals) geometry.computeVertexNormals();
+    geometry.computeBoundingBox();
+    geometry.computeBoundingSphere();
+
+    const mesh = new THREE.Mesh(geometry, createModelMaterial('#d9eef5'));
+    mesh.name = workerMesh.name;
+    mesh.matrix.fromArray(workerMesh.matrix);
+    mesh.matrixAutoUpdate = false;
+    group.add(mesh);
+  });
+
+  return group;
+}
+
+function parseModelInWorker(fileName: string, buffer: ArrayBuffer) {
+  return new Promise<Omit<ModelParseWorkerSuccess, 'id' | 'ok'>>((resolve, reject) => {
+    const id = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+    const worker = new Worker(new URL('../workers/model-parse-worker.ts', import.meta.url), { type: 'module' });
+
+    worker.onmessage = (event: MessageEvent<ModelParseWorkerResponse>) => {
+      if (event.data.id !== id) return;
+      worker.terminate();
+      if (!event.data.ok) {
+        reject(new Error(event.data.message));
+        return;
+      }
+      resolve({
+        measurement: event.data.measurement,
+        riskAnalysis: event.data.riskAnalysis,
+        meshes: event.data.meshes,
+      });
+    };
+
+    worker.onerror = (event) => {
+      worker.terminate();
+      reject(new Error(event.message || 'Model parsing failed.'));
+    };
+
+    worker.postMessage({ id, fileName, buffer }, [buffer]);
   });
 }
 
@@ -435,17 +547,13 @@ export default function HomePage() {
       setProgressPercent(70);
       setStatusKey('parsing');
       await waitForPaint();
-      const [{ parseModelBuffer }, { measureModel }, { analyzeModelRisk }] = await Promise.all([
-        import('@/lib/model/parse-model'),
-        import('@/lib/model/model-measure'),
-        import('@/lib/model/model-risk'),
-      ]);
-      const object = await parseModelBuffer(buffer, format);
+      const parsedModel = await parseModelInWorker(file.name, buffer);
       setProgressPercent(90);
       setStatusKey('measuring');
       await waitForPaint();
-      const measured = measureModel(object);
-      const risks = analyzeModelRisk(object);
+      const object = buildObjectFromWorkerMeshes(parsedModel.meshes);
+      const measured = parsedModel.measurement;
+      const risks = hydrateRiskAnalysis(parsedModel.riskAnalysis);
       setModelObject(object);
       setMeasurement(measured);
       setRiskAnalysis(risks);

@@ -9,6 +9,7 @@
     "dev": "NEXT_DIST_DIR=.next-dev next dev",
     "build": "NEXT_DIST_DIR=.next-build next build",
     "start": "NEXT_DIST_DIR=.next-build next start",
+    "test": "node --test --experimental-strip-types src/lib/tool-navigation.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

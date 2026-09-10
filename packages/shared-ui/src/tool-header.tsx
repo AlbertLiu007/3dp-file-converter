@@ -47,11 +47,6 @@ export function ToolHeader({
     return undefined;
   }
 
-  function getNavLabel(item: ToolHeaderNavItem) {
-    if (item.href === '/quote') return language === 'zh' ? '自动报价' : 'Auto Quote';
-    return item.label;
-  }
-
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
       <div className="mx-auto max-w-[1480px] px-5 py-4">
@@ -76,7 +71,7 @@ export function ToolHeader({
                       item.active ? 'bg-cyan-50 text-[#0b4f9c]' : 'text-[#0b4f9c] hover:bg-cyan-50 hover:text-[#083f7e]'
                     }`}
                   >
-                    {getNavLabel(item)}
+                    {item.label}
                   </a>
                 ))}
               </nav>

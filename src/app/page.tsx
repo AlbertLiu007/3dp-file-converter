@@ -2,6 +2,7 @@
 
 import { CheckCircle2, Download, FileArchive, FileText, FileUp, Loader2, Printer, ShieldCheck } from 'lucide-react';
 import { ToolHeader } from '@unionam/shared-ui';
+import { createToolNavigation } from '@/lib/tool-navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { ThreeModelViewer } from '@/components/model-viewer/three-model-viewer';
@@ -450,10 +451,7 @@ function ModelEngineeringView({
 
 export default function HomePage() {
   const { language, setLanguage, t } = useLanguage();
-  const navItems = [
-    { label: t.navQuote, href: '/quote' },
-    { label: t.navConverter, href: '/converter', active: true },
-  ];
+  const navItems = createToolNavigation(t, 'converter');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const downloadUrlRef = useRef<string | null>(null);
   const [currentFile, setCurrentFile] = useState<{ name: string; size: number; format: ModelFormat } | null>(null);

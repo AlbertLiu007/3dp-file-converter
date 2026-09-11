@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import Script from 'next/script';
 import { UnionAMLanguageProvider } from '@unionam/shared-i18n';
 import './globals.css';
 
@@ -18,7 +17,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="zh-CN">
       <body>
-        <Script defer src="https://cloud.umami.is/script.js" data-website-id="05e5f00c-82a3-4dcf-9d5a-b50f434eb92e" />
         <UnionAMLanguageProvider initialLanguage="zh">
           {children}
           <footer className="border-t border-slate-200 bg-white px-5 py-4 text-center text-xs font-semibold text-slate-500 print:hidden">

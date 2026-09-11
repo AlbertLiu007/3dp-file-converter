@@ -11,18 +11,6 @@ import { applyModelMaterial, createModelMaterial, disposeObjectResources, fitMod
 import { getModelFormat, isCadModelFormat, meshModelFormats, type MeshModelFormat, type ModelFormat, type ModelMeasurement } from '@/lib/model/model-types';
 import type { ModelRiskAnalysis } from '@/lib/model/model-risk';
 
-declare global {
-  interface Window {
-    umami?: {
-      track: (eventName: string) => void;
-    };
-  }
-}
-
-function trackEvent(eventName: string) {
-  window.umami?.track(eventName);
-}
-
 function downloadBlob(blob: Blob, fileName: string) {
   const downloadableBlob = blob.type === 'application/octet-stream' ? blob : new Blob([blob], { type: 'application/octet-stream' });
   const url = URL.createObjectURL(downloadableBlob);
@@ -516,7 +504,6 @@ export default function HomePage() {
       setProgressPercent(null);
       setStatusKey('parseFailed');
       setError(t.fileTooLarge(maxModelFileSizeLabel));
-      trackEvent('converter_model_parse_failed');
       return;
     }
     setProgressPercent(1);
@@ -549,7 +536,6 @@ export default function HomePage() {
       setRiskAnalysis(risks);
       setProgressPercent(100);
       setStatusKey('completed');
-      trackEvent('converter_model_parse_success');
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : t.modelParseFailed);
       setProgressPercent(null);
@@ -557,7 +543,6 @@ export default function HomePage() {
       setModelObject(null);
       setMeasurement(null);
       setRiskAnalysis(null);
-      trackEvent('converter_model_parse_failed');
     }
   }
 
@@ -581,7 +566,6 @@ export default function HomePage() {
       setStatusKey('convertFailed');
       return;
     }
-    trackEvent('converter_convert_click');
     if (!isScaledExport && !isCadModelFormat(currentFile.format) && currentFile.format === targetFormat) {
       setError(t.unsupportedSameFormat);
       return;
@@ -608,11 +592,9 @@ export default function HomePage() {
       downloadUrlRef.current = url;
       setDownloadFile({ name: result.fileName, url, blob: downloadBlobWithName });
       setStatusKey('readyToDownload');
-      trackEvent('converter_convert_success');
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : t.convertFailed);
       setStatusKey('convertFailed');
-      trackEvent('converter_convert_failed');
     } finally {
       setIsConverting(false);
     }
@@ -620,7 +602,6 @@ export default function HomePage() {
 
   async function handleExportPdf() {
     if (!measurement || isExportingPdf) return;
-    trackEvent('converter_export_pdf_click');
     const reportElement = document.getElementById('technical-report');
     if (!reportElement) return;
 
@@ -755,7 +736,6 @@ export default function HomePage() {
                 <button
                   type="button"
                   onClick={() => {
-                    trackEvent('converter_upload_area_click');
                     fileInputRef.current?.click();
                   }}
                   className={`absolute inset-5 flex flex-col items-center justify-center rounded-lg border-2 border-dashed bg-white/60 text-center transition hover:bg-cyan-50/50 ${
@@ -786,7 +766,6 @@ export default function HomePage() {
               <button
                 type="button"
                 onClick={() => {
-                  trackEvent('converter_select_model_click');
                   fileInputRef.current?.click();
                 }}
                 className="inline-flex h-10 items-center gap-2 rounded-md bg-[#0b4f9c] px-3 text-sm font-black text-white shadow-sm transition hover:bg-[#083f7e]"
@@ -835,7 +814,6 @@ export default function HomePage() {
                 onChange={(event) => {
                   const nextFormat = event.target.value as MeshModelFormat;
                   setTargetFormat(nextFormat);
-                  trackEvent('converter_target_format_change');
                 }}
                 className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-black text-slate-900 outline-none focus:border-cyan-600"
               >
@@ -937,7 +915,6 @@ export default function HomePage() {
                 onClick={() => {
                   downloadBlob(downloadFile.blob, downloadFile.name);
                 }}
-                data-umami-event="converter_download_click"
                 className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 text-sm font-black text-emerald-700 transition hover:bg-emerald-100"
               >
                 <Download className="h-4 w-4" />

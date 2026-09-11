@@ -6,10 +6,10 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "NEXT_DIST_DIR=.next-dev next dev",
+    "dev": "NEXT_DIST_DIR=.next-dev NODE_ENV=development node server.mjs",
     "build": "NEXT_DIST_DIR=.next-build next build",
-    "start": "NEXT_DIST_DIR=.next-build next start",
-    "test": "node --test --experimental-strip-types src/lib/tool-navigation.test.ts",
+    "start": "NEXT_DIST_DIR=.next-build NODE_ENV=production node server.mjs",
+    "test": "node --test --experimental-strip-types src/lib/tool-navigation.test.ts src/server/json-logger.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
